@@ -13,7 +13,7 @@ const bufferSize = 8
 
 type Request struct {
 	RequestLine RequestLine
-	state requestState // 0 = init; 1 = done
+	state       requestState // 0 = init; 1 = done
 }
 
 type RequestLine struct {
@@ -25,8 +25,8 @@ type RequestLine struct {
 type requestState int
 
 const (
-    requestStateInitialized requestState = iota
-    requestStateDone
+	requestStateInitialized requestState = iota
+	requestStateDone
 )
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
