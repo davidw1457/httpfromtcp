@@ -31,7 +31,6 @@ func main() {
 		}
 		fmt.Println("Connection closed")
 	}
-
 }
 
 func getLinesChannel(f io.ReadCloser) <-chan string {
@@ -45,6 +44,9 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
 			buf := make([]byte, 8)
 			_, err := f.Read(buf)
 			if errors.Is(err, io.EOF) {
+				if line != "" {
+					c <- line
+				}
 				break
 			} else if err != nil {
 				log.Fatalln(err)
