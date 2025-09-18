@@ -1,14 +1,19 @@
 package request
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
 	"strings"
 )
 
+const bufferSize = 8
+
 type Request struct {
 	RequestLine RequestLine
+	state requestState // 0 = init; 1 = done
 }
 
 type RequestLine struct {
@@ -17,55 +22,111 @@ type RequestLine struct {
 	Method        string
 }
 
+type requestState int
+
+const (
+    requestStateInitialized requestState = iota
+    requestStateDone
+)
+
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	input, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, fmt.Errorf("RequestFromReader: %w", err)
+	request := Request{state: requestStateInitialized}
+	buf := make([]byte, bufferSize)
+	readToIndex := 0
+
+	for request.state != requestStateDone {
+		if readToIndex == len(buf) {
+			newBuf := make([]byte, len(buf)*2)
+			copy(newBuf, buf)
+			buf = newBuf
+		}
+
+		n, err := reader.Read(buf[readToIndex:])
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				request.state = requestStateDone
+				break
+			}
+			return nil, fmt.Errorf("RequestFromReader: %w", err)
+		}
+
+		readToIndex += n
+		n, err = request.parse(buf[:readToIndex])
+		if err != nil {
+			return nil, fmt.Errorf("RequestFromReader: %w", err)
+		}
+
+		copy(buf, buf[n:])
+		readToIndex -= n
 	}
 
-	lines := strings.Split(string(input), "\r\n")
-	rl, err := parseRequestLine(lines[0])
-	if err != nil {
-		return nil, fmt.Errorf("RequestFromReader: %w", err)
-	}
-
-	rq := Request{RequestLine: *rl}
-
-	return &rq, nil
+	return &request, nil
 }
 
-func parseRequestLine(rl string) (*RequestLine, error) {
-	rlFields := strings.Fields(rl)
+func parseRequestLine(input []byte) (*RequestLine, int, error) {
+	idx := bytes.Index(input, []byte("\r\n"))
+	if idx == -1 {
+		return nil, 0, nil
+	}
+	requestLineText := string(input[:idx])
+	requestLine, err := requestLineFromString(requestLineText)
+	if err != nil {
+		return nil, idx, fmt.Errorf("parseRequestLine: %w", err)
+	}
 
-	if len(rlFields) != 3 {
+	return requestLine, idx + 2, nil
+}
+
+func requestLineFromString(line string) (*RequestLine, error) {
+	fields := strings.Fields(line)
+
+	if len(fields) != 3 {
 		return nil, fmt.Errorf(
-			"parseRequestLine: request-line missing fields %s",
-			rl,
+			"requestLineFromString: request-line missing fields %s",
+			line,
 		)
 	}
 
-	validMethod, err := regexp.Match("[A-Z]+$", []byte(rlFields[0]))
+	validMethod, err := regexp.Match("[A-Z]+$", []byte(fields[0]))
 	if err != nil {
 		return nil, fmt.Errorf("parseRequestLine: %w", err)
 	} else if !validMethod {
 		return nil, fmt.Errorf(
 			"parseRequestLine: invalid method: %s",
-			rlFields[0],
+			fields[0],
 		)
 	}
 
-	if !strings.Contains(rlFields[2], "HTTP/1.1") {
+	if !strings.Contains(fields[2], "HTTP/1.1") {
 		return nil, fmt.Errorf(
-			"parseRequestLine: Invalid HTTP version: %s",
-			rlFields[2],
+			"parseRequestLine: invalid http version: %s",
+			fields[2],
 		)
 	}
 
 	parsedRL := RequestLine{
 		HttpVersion:   "1.1",
-		RequestTarget: rlFields[1],
-		Method:        rlFields[0],
+		RequestTarget: fields[1],
+		Method:        fields[0],
 	}
 
 	return &parsedRL, nil
+}
+
+func (r *Request) parse(data []byte) (int, error) {
+	if r.state == requestStateDone {
+		return 0, fmt.Errorf("error: trying to read data in a done state")
+	}
+
+	requestLine, n, err := parseRequestLine(data)
+	if err != nil {
+		return n, fmt.Errorf("request.parse: %w", err)
+	}
+
+	if requestLine != nil {
+		r.RequestLine = *requestLine
+		r.state = requestStateDone
+	}
+
+	return n, nil
 }
