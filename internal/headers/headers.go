@@ -3,6 +3,7 @@ package headers
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -18,6 +19,9 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 	if kv == nil {
 		return n, true, nil
+	}
+	if old, ok := h[kv[0]]; ok {
+		kv[1] = fmt.Sprintf("%s, %s", old, kv[1])
 	}
 
 	h[kv[0]] = kv[1]
@@ -56,8 +60,15 @@ func headerLineFromString(line string) ([]string, error) {
 		)
 	}
 
-	key := strings.TrimSpace(line[:idx])
-	if strings.TrimSpace(line[idx-1:idx]) == "" || key == "" {
+	key := strings.ToLower(strings.TrimSpace(line[:idx]))
+	isValid, err := regexp.MatchString("^[\\w!#$%&'*+-.^_`|~]+$", key)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"headerLineFromString: %w",
+			err,
+		)
+	}
+	if strings.TrimSpace(line[idx-1:idx]) == "" || key == "" || !isValid {
 		return nil, fmt.Errorf(
 			"headerLineFromString: improper key value: %s",
 			line,
