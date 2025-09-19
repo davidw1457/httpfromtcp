@@ -17,7 +17,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	if n == 0 {
 		return n, false, nil
 	}
-	if kv == nil {
+	if kv == nil && n == 2 {
 		return n, true, nil
 	}
 	if old, ok := h[kv[0]]; ok {
@@ -36,6 +36,9 @@ func parseHeaderLine(input []byte) ([]string, int, error) {
 	idx := bytes.Index(input, []byte("\r\n"))
 	if idx == -1 {
 		return nil, 0, nil
+	}
+	if idx == 0 {
+		return nil, 2, nil
 	}
 
 	line := string(input[:idx])

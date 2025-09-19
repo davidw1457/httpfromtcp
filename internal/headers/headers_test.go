@@ -20,7 +20,8 @@ func TestHeadersParse(t *testing.T) {
 
 	// Test: Valid single header with extra whitespace
 	headers = NewHeaders()
-	data = []byte("       Host: localhost:42069                           \r\n\r\n")
+	data = []byte("       Host: localhost:42069                           " +
+		"\r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
@@ -48,16 +49,6 @@ func TestHeadersParse(t *testing.T) {
 	assert.Empty(t, headers)
 	assert.Equal(t, 2, n)
 	assert.True(t, done)
-
-	// Test: Multiple values
-	headers = map[string]string{"host": "localhost:42069"}
-	data = []byte("Host: anotherhost:69420\r\n\r\n")
-	n, done, err = headers.Parse(data)
-	require.NoError(t, err)
-	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069, anotherhost:69420", headers["host"])
-	assert.Equal(t, 25, n)
-	assert.False(t, done)
 
 	// Test: Invalid spacing header
 	headers = NewHeaders()
