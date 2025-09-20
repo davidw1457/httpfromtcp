@@ -82,3 +82,8 @@ func headerLineFromString(line string) ([]string, error) {
 
 	return []string{key, value}, nil
 }
+
+func (h Headers) Get(key string) string {
+	key = strings.ToLower(key)
+	return h[key]
+}

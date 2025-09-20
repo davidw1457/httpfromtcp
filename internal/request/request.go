@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/davidw1457/httpfromtcp/internal/headers"
@@ -16,7 +17,9 @@ const bufferSize = 8
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
-	state       requestState // 0 = init; 1 = done
+	Body        []byte
+
+	state requestState // 0 = init; 1 = done
 }
 
 type RequestLine struct {
@@ -30,6 +33,7 @@ type requestState int
 const (
 	requestStateInitialized requestState = iota
 	requestStateParsingHeaders
+	requestStateParsingBody
 	requestStateDone
 )
 
@@ -51,6 +55,11 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		n, err := reader.Read(buf[readToIndex:])
 		if err != nil {
 			if errors.Is(err, io.EOF) {
+				contentLength := request.Headers.Get("Content-Length")
+				if request.state == requestStateParsingBody &&
+					(contentLength == "" || contentLength == "0") {
+					request.state = requestStateDone
+				}
 				if request.state != requestStateDone {
 					return nil, fmt.Errorf("incomplete request")
 				}
@@ -160,9 +169,28 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 		}
 
 		if done {
-			r.state = requestStateDone
+			r.state = requestStateParsingBody
 		}
 		return n, nil
+	case requestStateParsingBody:
+		contentLengthStr := r.Headers.Get("Content-Length")
+		if contentLengthStr == "" {
+			r.state = requestStateDone
+			return 0, nil
+		}
+
+		contentLength, err := strconv.Atoi(contentLengthStr)
+		if err != nil {
+			return 0, fmt.Errorf("request.parse:: %w", err)
+		}
+
+		r.Body = append(r.Body, data...)
+		if len(r.Body) > contentLength {
+			return 0, fmt.Errorf("too much body")
+		} else if len(r.Body) == contentLength {
+			r.state = requestStateDone
+		}
+		return len(data), nil
 	default:
 		return 0, fmt.Errorf("invalid state")
 	}

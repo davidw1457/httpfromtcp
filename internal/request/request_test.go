@@ -11,8 +11,7 @@ import (
 func TestRequestLineParse(t *testing.T) {
 	// Test: Good GET Request line
 	reader := &chunkReader{
-		data: "GET / HTTP/1.1\r\nHost: localhost:42069\r\n" +
-			"User-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 3,
 	}
 	r, err := RequestFromReader(reader)
@@ -24,8 +23,7 @@ func TestRequestLineParse(t *testing.T) {
 
 	// Test: Good GET Request line with path
 	reader = &chunkReader{
-		data: "GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\n" +
-			"User-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		data:            "GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 1,
 	}
 	r, err = RequestFromReader(reader)
@@ -37,8 +35,7 @@ func TestRequestLineParse(t *testing.T) {
 
 	// Test: Good POST Request with path
 	reader = &chunkReader{
-		data: "POST /coffee HTTP/1.1\r\nHost: localhost:42069\r\n" +
-			"User-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		data:            "POST /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 5,
 	}
 	r, err = RequestFromReader(reader)
@@ -50,8 +47,7 @@ func TestRequestLineParse(t *testing.T) {
 
 	// Test: Invalid number of parts in request line
 	reader = &chunkReader{
-		data: "/coffee HTTP/1.1\r\nHost: localhost:42069\r\n" +
-			"User-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		data:            "/coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 3,
 	}
 	_, err = RequestFromReader(reader)
@@ -59,8 +55,7 @@ func TestRequestLineParse(t *testing.T) {
 
 	// Test: Invalid method (out of order) Request line
 	reader = &chunkReader{
-		data: "/coffee POST HTTP/1.1\r\nHost: localhost:42069\r\n" +
-			"User-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		data:            "/coffee POST HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 3,
 	}
 	_, err = RequestFromReader(reader)
@@ -68,9 +63,7 @@ func TestRequestLineParse(t *testing.T) {
 
 	// Test: Invalid version in Request line
 	reader = &chunkReader{
-		data: "OPTIONS /prime/rib TCP/1.1\r\n" +
-			"Host: localhost:42069\r\nUser-Agent: curl/7.81.0\r\n" +
-			"Accept: */*\r\n\r\n",
+		data:            "OPTIONS /prime/rib TCP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 50,
 	}
 	_, err = RequestFromReader(reader)
@@ -80,8 +73,7 @@ func TestRequestLineParse(t *testing.T) {
 func TestHeadersParse(t *testing.T) {
 	// Test: Standard Headers
 	reader := &chunkReader{
-		data: "GET / HTTP/1.1\r\nHost: localhost:42069\r\n" +
-			"User-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
 		numBytesPerRead: 3,
 	}
 	r, err := RequestFromReader(reader)
@@ -111,8 +103,7 @@ func TestHeadersParse(t *testing.T) {
 
 	// Test: Duplicate Headers
 	reader = &chunkReader{
-		data: "GET / HTTP/1.1\r\nHost: localhost:42069\r\n" +
-			"Host: duplicate:8080\r\n\r\n",
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nHost: duplicate:8080\r\n\r\n",
 		numBytesPerRead: 3,
 	}
 	r, err = RequestFromReader(reader)
@@ -122,8 +113,7 @@ func TestHeadersParse(t *testing.T) {
 
 	// Test: Case Insensitive Headers
 	reader = &chunkReader{
-		data: "GET / HTTP/1.1\r\nHOST: localhost:42069\r\n" +
-			"USER-AGENT: curl/7.81.0\r\n\r\n",
+		data:            "GET / HTTP/1.1\r\nHOST: localhost:42069\r\nUSER-AGENT: curl/7.81.0\r\n\r\n",
 		numBytesPerRead: 3,
 	}
 	r, err = RequestFromReader(reader)
@@ -134,12 +124,65 @@ func TestHeadersParse(t *testing.T) {
 
 	// Test: Missing End of Headers
 	reader = &chunkReader{
-		data: "GET / HTTP/1.1\r\nHost: localhost:42069\r\n" +
-			"User-Agent: curl/7.81.0",
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0",
 		numBytesPerRead: 3,
 	}
 	_, err = RequestFromReader(reader)
 	require.Error(t, err)
+}
+
+func TestBodyParse(t *testing.T) {
+	// Test: Standard Body
+	reader := &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Content-Length: 13\r\n" +
+			"\r\n" +
+			"hello world!\n",
+		numBytesPerRead: 3,
+	}
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "hello world!\n", string(r.Body))
+
+	// Test: Empty Body, 0 reported content length
+	reader = &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Content-Length: 0\r\n" +
+			"\r\n",
+		numBytesPerRead: 3,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "", string(r.Body))
+
+	// Test: Body shorter than reported content length
+	reader = &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"Content-Length: 20\r\n" +
+			"\r\n" +
+			"partial content",
+		numBytesPerRead: 3,
+	}
+	_, err = RequestFromReader(reader)
+	require.Error(t, err)
+
+	// Test: No Content-Length but Body Exists
+	reader = &chunkReader{
+		data: "POST /submit HTTP/1.1\r\n" +
+			"Host: localhost:42069\r\n" +
+			"\r\n" +
+			"hello world!\n",
+		numBytesPerRead: 3,
+	}
+	r, err = RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "", string(r.Body))
 }
 
 type chunkReader struct {
