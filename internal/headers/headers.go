@@ -88,3 +88,21 @@ func (h Headers) Get(key string) (string, bool) {
 	val, ok := h[key]
 	return val, ok
 }
+
+func (h Headers) Set(key string, val string) {
+	key = strings.ToLower(key)
+	h[key] = val
+}
+
+func (h Headers) Add(key string, val string) {
+	key = strings.ToLower(key)
+	if v, ok := h[key]; ok {
+		val = fmt.Sprintf("%s, %s", v, val)
+	}
+	h[key] = val
+}
+
+func (h Headers) Delete(key string) {
+	key = strings.ToLower(key)
+	delete(h, key)
+}
