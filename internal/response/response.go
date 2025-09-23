@@ -153,7 +153,7 @@ func (w *Writer) WriteTrailers(h headers.Headers) error {
 
 	trailerKeys := strings.Split(trailers, ",")
 	for _, k := range trailerKeys {
-        k = strings.TrimSpace(k)
+		k = strings.TrimSpace(k)
 		v, ok := h.Get(k)
 		if !ok {
 			continue

@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-//    "time"
+	//    "time"
 
 	"github.com/davidw1457/httpfromtcp/internal/headers"
 	"github.com/davidw1457/httpfromtcp/internal/request"
@@ -44,6 +44,7 @@ func handler(w *response.Writer, req *request.Request) {
 	target := req.RequestLine.RequestTarget
 	var suffix string
 	var proxyUrl string
+	var err error
 	if strings.HasPrefix(target, "/httpbin/") {
 		suffix = strings.TrimPrefix(target, "/httpbin/")
 		target = "/httpbin/"
@@ -80,6 +81,14 @@ func handler(w *response.Writer, req *request.Request) {
 		headers.Set("Transfer-Encoding", "chunked")
 		handleProxy(w, headers, fmt.Sprintf("%s%s", proxyUrl, suffix))
 		return
+	case "/video":
+		statusCode = response.OK
+		headers.Set("Content-Type", "video/mp4")
+		body, err = getVideo()
+		if err != nil {
+			log.Printf("handler: %s\n", err)
+			return
+		}
 	default:
 		statusCode = response.OK
 		body = []byte(`<html>
@@ -96,7 +105,7 @@ func handler(w *response.Writer, req *request.Request) {
 
 	headers.Set("Content-Length", strconv.Itoa(len(body)))
 
-	err := w.WriteStatusLine(statusCode)
+	err = w.WriteStatusLine(statusCode)
 	if err != nil {
 		log.Printf("handler: %s\n", err)
 		return
@@ -121,16 +130,16 @@ func handleProxy(w *response.Writer, h headers.Headers, url string) {
 		return
 	}
 
-//    for resp.StatusCode == 503 {
-//        log.Printf("error retrieving %s: %s", url, resp.Status)
-//        log.Println("retrying in 10 seconds...")
-//        time.Sleep(10 * time.Second)
-//        resp, err = http.Get(url)
-//	    if err != nil {
-//	    	log.Printf("handleProxy: %s\n", err)
-//	    	return
-//	    }
-//    }
+	//    for resp.StatusCode == 503 {
+	//        log.Printf("error retrieving %s: %s", url, resp.Status)
+	//        log.Println("retrying in 10 seconds...")
+	//        time.Sleep(10 * time.Second)
+	//        resp, err = http.Get(url)
+	//	    if err != nil {
+	//	    	log.Printf("handleProxy: %s\n", err)
+	//	    	return
+	//	    }
+	//    }
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		log.Printf("error retrieving %s: %s", url, resp.Status)
@@ -160,8 +169,7 @@ func handleProxy(w *response.Writer, h headers.Headers, url string) {
 	bodySize := 0
 
 	n, err := resp.Body.Read(p)
-	for ; n > 0 && (err == nil || errors.Is(err, io.EOF)); 
-        n, err = resp.Body.Read(p) {
+	for ; n > 0 && (err == nil || errors.Is(err, io.EOF)); n, err = resp.Body.Read(p) {
 		fullBody = append(fullBody, p[:n]...)
 		bodySize += n
 
@@ -172,7 +180,7 @@ func handleProxy(w *response.Writer, h headers.Headers, url string) {
 		}
 	}
 
-    hash := sha256.Sum256(fullBody)
+	hash := sha256.Sum256(fullBody)
 	h.Add("X-Content-SHA256", fmt.Sprintf("%x", hash))
 	h.Add("X-Content-Length", strconv.Itoa(bodySize))
 
@@ -180,7 +188,7 @@ func handleProxy(w *response.Writer, h headers.Headers, url string) {
 		_, err = w.WriteChunkedBodyDone()
 		if err != nil {
 			log.Printf("handleProxy: %s\n", err)
-            return
+			return
 		}
 
 		err = w.WriteTrailers(h)
@@ -190,4 +198,13 @@ func handleProxy(w *response.Writer, h headers.Headers, url string) {
 	} else {
 		log.Printf("handleProxy: %s\n", err)
 	}
+}
+
+func getVideo() ([]byte, error) {
+	video, err := os.ReadFile("assets/vim.mp4")
+	if err != nil {
+		return nil, fmt.Errorf("getVideo: %w", err)
+	}
+
+	return video, nil
 }
